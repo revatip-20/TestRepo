@@ -1,0 +1,63 @@
+name: CI/CD Workflow
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci;
+          else
+            npm install;
+          fi
+
+      - name: Run tests
+        run: |
+          if ls **/*.spec.ts 1> /dev/null 2>&1 || ls **/*.test.ts 1> /dev/null 2>&1; then
+            npm test;
+          else
+            echo 'No tests found, skipping test step.';
+          fi
+
+      - name: Build application
+        run: npm run build
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: ci
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Deploy to Vercel
+        run: |
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo '::warning::VERCEL_TOKEN or VERCEL_PROJECT_ID is missing, skipping deployment.';
+            exit 0;
+          fi
+          curl -X POST https://api.vercel.com/v13/deployments?teamId=$VERCEL_ORG_ID \
+            -H 'Authorization: Bearer $VERCEL_TOKEN' \
+            -H 'Content-Type: application/json' \
+            -d '{"project":"$VERCEL_PROJECT_ID", "gitSource": {"repo": "$GITHUB_REPOSITORY", "ref": "$GITHUB_REF_NAME"}}'
