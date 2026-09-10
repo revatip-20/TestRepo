@@ -88,7 +88,7 @@ jobs:
                       "x-vercel-digest": digest,
                       "Accept": "application/json",
                   },
-                  method="PUT",
+                  method="POST",
               )
               try:
                   with urllib.request.urlopen(req, timeout=60) as resp:
@@ -97,7 +97,7 @@ jobs:
                   if exc.code != 409:
                       err = exc.read().decode("utf-8", errors="replace")
                       raise SystemExit(f"Upload failed for {rel}: HTTP {exc.code} {err[:400]}") from exc
-              files.append({"file": rel, "sha": digest})
+              files.append({"file": rel, "sha": digest, "size": len(data)})
               if len(files) >= 800:
                   break
           if not files:
